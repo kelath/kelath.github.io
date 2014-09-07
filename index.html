@@ -1,51 +1,107 @@
-Salt Info Documentation
+# Salt Info Documentation
 
-Salt Minion installation
+### Salt Minion installation
+```
 wget -O - http://bootstrap.saltstack.org | sudo sh
-
+```
 For the master, it’s the same one-liner as for the minions, plus (on Debian/Ubuntu):
+```
 apt-get install salt-master
+```
 
-Minion config
-* Config is in /etc/salt/minion
-* By default, the minion connects to the master with hostname salt
-* Edit config to change the master hostname or add the appropriate DNS entry (or add a salt entry to /etc/hosts)
-* Restart minion : service salt-minion restart
+### Minion config
 
-Master config
-* Edit /etc/salt/master
-* By default, it looks for minion config in: /srv/salt/
+* Config is in `/etc/salt/minion`
+* By default, the minion connects to the master with hostname `salt`
+* Edit config to change the master hostname or add the appropriate DNS entry (or add a `salt` entry to `/etc/hosts`)
+* Restart minion :
+```
+service salt-minion restart
+```
+
+### Master config
+
+* Edit `/etc/salt/master`
+* By default, it looks for minion config in: `/srv/salt/`
 * Default options are fine, actually
-* Restart the master if you changed something: service salt-master restart
+* Restart the master if you changed something: 
+```
+service salt-master restart
+```
 
-Authorize minions
+### Authorize minions
+
 * Minions generate their own key-pair upon first startup, and send the public key to the master
 * On the master, list the keys with:
+```
 salt-key -L (or -P for details)
+```
 * Keys are pending for authorization. Check them, then accept them with:
+```
 salt-key -A
-
+```
 Pre-defined modules listed with:
+```
 salt '*' sys.doc
+```
 
-Running a script
-* Put your script on the master in /srv/salt/
+### Running a script
+
+* Put your script on the master in `/srv/salt/`
 * Then run it!
+```
 salt '*' cmd.script salt://myscript.sh
-* Boy, that was a no-brainer, wasn’t it?
+```
 
-Specifying targets
+### Specifying targets
+
 * Target is interpreted as a minion id glob:
+```
 salt 'app_server_*' test.ping
+```
 * Minion id defaults to the minion’s FQDN, but you can change it in the minion’s config
 * SaltStack also gives access to some of the minion’s attributes (CPU type, OS...), and you can target them. These attributes are called 
 "grains":
+```
 salt -G 'os:Ubuntu' test.ping
-
+```
 You can define groups in the master’s config (called "nodegroups") and target them:
+```
 salt -N app_servers test.ping
+```
 * You can target IPs and subnets:
+```
 salt -S '10.1.2.0/24' test.ping
+```
 * You can target "pillars": those are key/value pairs defined on the master and associated to minions.
 * And finally you can mix all of the above using an "and/or" expression (this is called a "compound target")
 
+### Home-made Modules
+
+A salt module is just a regular python module:
+```python
+# mathmagic.py
+def pow(x, exp = 2):
+ return x**exp
+```
+* Put it in `/srv/salt/_modules/`
+* Synchronize the modules on the minions:
+```
+'salt '*' saltutil.sync_modules
+```
+* Then run!
+```
+salt '*' mathmagic.pow 5 exp=3
+```
+* Arguments are parsed as YAML, so the function receives integer arguments, not strings :-)
+
+You can schedule commands to be executed at regular intervals
+* The master can be configured to store the results of specific commands in a local database called the "salt mine". Minions can query data from the salt mine. 
+For example the master can store the IP address of all web servers, and the 
+load balancers can query this information for their configuration
+* You can store arbitrary values, such as passwords and secrets, in "pillars". They are configured much like SLS files, and they allow you to set key/value pairs for minions in a very flexible way.
+* You can authorize specific minions to send specific commands to any minion. This is called "peer communication". 
+* You can specify a "returner" when sending a command: instead of returning the result to the master, the returner will save it to redis, mongo, etc. 
+* You can configure the "outputter" to format the result of a command the way you want it: json, pprint, raw, txt, yaml...
+* There’s an "API" so you can do everything programmatically.
+* There’s an event framework that allows you to trigger events: you define "reactors" as SLS files that define how each minion should react.
